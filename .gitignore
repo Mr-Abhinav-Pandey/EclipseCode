@@ -1,0 +1,45 @@
+# Compiled binaries
+eclipse
+eclipse.exe
+*.out
+*.o
+*.obj
+
+# Generated data files (created at runtime)
+test_enc.txt
+test_dec.txt
+logs.txt
+
+# Keep test.txt if you want, but ignore if it has sensitive content
+# test.txt
+
+# Build directories
+build/
+bin/
+out/
+
+# Eclipse IDE files (since the project is called EclipseCode, just in case)
+.metadata/
+.project
+.classpath
+.settings/
+*.launch
+
+# VS Code
+.vscode/
+
+# CLion / JetBrains
+.idea/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+
+# Makefile artifacts
+*.d
+
+# macOS stuff
+.DS_Store
+
+# Windows stuff
+Thumbs.db
+desktop.ini
