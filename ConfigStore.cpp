@@ -61,7 +61,7 @@ std::optional<CipherConfig> ConfigStore::load(const std::string &filename)
         std::string key;
         std::string value;
         if (!parseLine(line, key, value))
-            return std::nullopt;
+            continue;
 
         if (key == "type")
             cfg.type = value;

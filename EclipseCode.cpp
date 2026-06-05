@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <unordered_map>
 #include <functional>
+#include "ConfigStore.h"
 
 using namespace std;
 
@@ -414,95 +415,7 @@ public:
         return encryptionParam;
     }
 
-    static bool saveToFile(const string &filename = "eclipse.cfg")
-    {
-        ofstream out(filename);
-        if (!out)
-        {
-            cerr << "[ConfigManager] Failed to open '" << filename << "' for writing.\n";
-            return false;
-        }
-        out << "type=" << encryptionType << "\n";
-        if (iequals(encryptionType, "Caesar"))
-        {
-            out << "shift=" << encryptionParam << "\n";
-        }
-        else
-        {
-            out << "key=" << encryptionParam << "\n";
-        }
-        return true;
-    }
-
-    static bool loadFromFile(const string &filename = "eclipse.cfg")
-    {
-        ifstream in(filename);
-        if (!in)
-        {
-            return false;
-        }
-        unordered_map<string, string> map;
-        string line;
-        while (getline(in, line))
-        {
-            line = trim(line);
-            if (line.empty() || line.rfind("#", 0) == 0)
-                continue;
-            size_t pos = line.find('=');
-            if (pos == string::npos)
-                continue;
-            string k = trim(line.substr(0, pos));
-            string v = trim(line.substr(pos + 1));
-            map[k] = v;
-        }
-        if (map.find("type") == map.end())
-            return false;
-        string type = map["type"];
-        if (iequals(type, "Caesar"))
-        {
-            if (map.find("shift") == map.end())
-                return false;
-            // validate integer
-            try
-            {
-                int s = stoi(map["shift"]);
-                if (s < 1 || s > 25)
-                    return false;
-                setEncryptionType("Caesar");
-                setEncryptionParam(to_string(s));
-                return true;
-            }
-            catch (...) { return false; }
-        }
-        else if (iequals(type, "Vigenere") || iequals(type, "XOR") || iequals(type, "Substitution"))
-        {
-            if (map.find("key") == map.end())
-                return false;
-            string key = map["key"];
-            if (iequals(type, "Substitution"))
-            {
-                if (key.length() != 26)
-                    return false;
-                // basic uniqueness check
-                unordered_set<char> seen;
-                for (char c : key)
-                {
-                    if (!isalpha(static_cast<unsigned char>(c)))
-                        return false;
-                    char up = toupper(static_cast<unsigned char>(c));
-                    if (seen.count(up))
-                        return false;
-                    seen.insert(up);
-                }
-            }
-            if (iequals(type, "Vigenere")) setEncryptionType("Vigenere");
-            else if (iequals(type, "XOR")) setEncryptionType("XOR");
-            else setEncryptionType("Substitution");
-            setEncryptionParam(key);
-            return true;
-        }
-        return false;
-    }
+    // Persistence methods have been migrated to ConfigStore.
 };
 
 string ConfigManager::encryptionType = "Caesar";
@@ -791,8 +704,13 @@ void encryptionSystem()
                 continue;
             }
 
-            // Save chosen cipher to config
-            ConfigManager::saveToFile();
+            CipherConfig cfg;
+            cfg.type = ConfigManager::getEncryptionType();
+            if (iequals(cfg.type, "Caesar"))
+                cfg.params["shift"] = ConfigManager::getEncryptionParam();
+            else
+                cfg.params["key"] = ConfigManager::getEncryptionParam();
+            ConfigStore::save(cfg);
 
             string msg = FileHandler::readFromFile(inputFile);
             if (msg.empty())
@@ -851,29 +769,52 @@ void encryptionSystem()
 
             // Try to load saved config and construct cipher automatically
             unique_ptr<Cipher> cipher;
-            bool loaded = ConfigManager::loadFromFile();
-            if (loaded)
+            auto loadedConfig = ConfigStore::load();
+            if (loadedConfig)
             {
-                string type = ConfigManager::getEncryptionType();
-                string param = ConfigManager::getEncryptionParam();
+                const CipherConfig &cfg = *loadedConfig;
                 try
                 {
-                    if (iequals(type, "Caesar"))
+                    if (iequals(cfg.type, "Caesar"))
                     {
-                        int s = stoi(param);
-                        cipher = make_unique<CaesarCipher>(s);
+                        auto it = cfg.params.find("shift");
+                        if (it != cfg.params.end())
+                            cipher = make_unique<CaesarCipher>(stoi(it->second));
                     }
-                    else if (iequals(type, "Vigenere"))
+                    else if (iequals(cfg.type, "Vigenere"))
                     {
-                        cipher = make_unique<VigenereCipher>(param);
+                        auto it = cfg.params.find("key");
+                        if (it != cfg.params.end())
+                            cipher = make_unique<VigenereCipher>(it->second);
                     }
-                    else if (iequals(type, "XOR"))
+                    else if (iequals(cfg.type, "XOR"))
                     {
-                        cipher = make_unique<XORCipher>(param);
+                        auto it = cfg.params.find("key");
+                        if (it != cfg.params.end())
+                            cipher = make_unique<XORCipher>(it->second);
                     }
-                    else if (iequals(type, "Substitution"))
+                    else if (iequals(cfg.type, "Substitution"))
                     {
-                        cipher = make_unique<SubstitutionCipher>(param);
+                        auto it = cfg.params.find("key");
+                        if (it != cfg.params.end())
+                            cipher = make_unique<SubstitutionCipher>(it->second);
+                    }
+
+                    if (cipher)
+                    {
+                        ConfigManager::setEncryptionType(cfg.type);
+                        if (iequals(cfg.type, "Caesar"))
+                        {
+                            auto it = cfg.params.find("shift");
+                            if (it != cfg.params.end())
+                                ConfigManager::setEncryptionParam(it->second);
+                        }
+                        else
+                        {
+                            auto it = cfg.params.find("key");
+                            if (it != cfg.params.end())
+                                ConfigManager::setEncryptionParam(it->second);
+                        }
                     }
                 }
                 catch (const exception &)
