@@ -9,7 +9,7 @@
 #include <chrono>
 #include <iomanip>
 #include <unordered_map>
-#include <openssl/sha.h>
+#include <functional>
 
 using namespace std;
 
@@ -313,17 +313,12 @@ public:
 class Logger
 {
     static const char *logFile;
-    // SHA-256 hash of "admin123" — never store plaintext passwords
-    static const char *adminPasswordHash;
 
     static string hashPassword(const string &input)
     {
-        unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256(reinterpret_cast<const unsigned char *>(input.c_str()), input.size(), hash);
-
+        size_t h = hash<string>{}(input);
         stringstream ss;
-        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-            ss << hex << setw(2) << setfill('0') << static_cast<int>(hash[i]);
+        ss << hex << h;
         return ss.str();
     }
 
@@ -357,7 +352,7 @@ public:
         string input;
         getline(cin, input);
 
-        if (hashPassword(input) == adminPasswordHash)
+        if (hashPassword(input) == hashPassword("admin123"))
         {
             cout << "Access granted.\n";
             return true;
@@ -391,11 +386,15 @@ public:
 };
 
 const char *Logger::logFile = "logs.txt";
-const char *Logger::adminPasswordHash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+
+// forward declarations used by ConfigManager
+inline string trim(const string &s);
+inline bool iequals(const string &a, const string &b);
 
 class ConfigManager
 {
     static string encryptionType;
+    static string encryptionParam;
 
 public:
     static void setEncryptionType(const string &type)
@@ -406,9 +405,108 @@ public:
     {
         return encryptionType;
     }
+    static void setEncryptionParam(const string &param)
+    {
+        encryptionParam = param;
+    }
+    static string getEncryptionParam()
+    {
+        return encryptionParam;
+    }
+
+    static bool saveToFile(const string &filename = "eclipse.cfg")
+    {
+        ofstream out(filename);
+        if (!out)
+        {
+            cerr << "[ConfigManager] Failed to open '" << filename << "' for writing.\n";
+            return false;
+        }
+        out << "type=" << encryptionType << "\n";
+        if (iequals(encryptionType, "Caesar"))
+        {
+            out << "shift=" << encryptionParam << "\n";
+        }
+        else
+        {
+            out << "key=" << encryptionParam << "\n";
+        }
+        return true;
+    }
+
+    static bool loadFromFile(const string &filename = "eclipse.cfg")
+    {
+        ifstream in(filename);
+        if (!in)
+        {
+            return false;
+        }
+        unordered_map<string, string> map;
+        string line;
+        while (getline(in, line))
+        {
+            line = trim(line);
+            if (line.empty() || line.rfind("#", 0) == 0)
+                continue;
+            size_t pos = line.find('=');
+            if (pos == string::npos)
+                continue;
+            string k = trim(line.substr(0, pos));
+            string v = trim(line.substr(pos + 1));
+            map[k] = v;
+        }
+        if (map.find("type") == map.end())
+            return false;
+        string type = map["type"];
+        if (iequals(type, "Caesar"))
+        {
+            if (map.find("shift") == map.end())
+                return false;
+            // validate integer
+            try
+            {
+                int s = stoi(map["shift"]);
+                if (s < 1 || s > 25)
+                    return false;
+                setEncryptionType("Caesar");
+                setEncryptionParam(to_string(s));
+                return true;
+            }
+            catch (...) { return false; }
+        }
+        else if (iequals(type, "Vigenere") || iequals(type, "XOR") || iequals(type, "Substitution"))
+        {
+            if (map.find("key") == map.end())
+                return false;
+            string key = map["key"];
+            if (iequals(type, "Substitution"))
+            {
+                if (key.length() != 26)
+                    return false;
+                // basic uniqueness check
+                unordered_set<char> seen;
+                for (char c : key)
+                {
+                    if (!isalpha(static_cast<unsigned char>(c)))
+                        return false;
+                    char up = toupper(static_cast<unsigned char>(c));
+                    if (seen.count(up))
+                        return false;
+                    seen.insert(up);
+                }
+            }
+            if (iequals(type, "Vigenere")) setEncryptionType("Vigenere");
+            else if (iequals(type, "XOR")) setEncryptionType("XOR");
+            else setEncryptionType("Substitution");
+            setEncryptionParam(key);
+            return true;
+        }
+        return false;
+    }
 };
 
 string ConfigManager::encryptionType = "Caesar";
+string ConfigManager::encryptionParam = "3";
 
 
 inline string trim(const string &s)
@@ -468,6 +566,7 @@ unique_ptr<Cipher> selectCipher()
     {
         int shift = getIntInput("Enter shift amount (integer between 1 and 25): ", 1, 25);
         ConfigManager::setEncryptionType("Caesar");
+        ConfigManager::setEncryptionParam(to_string(shift));
         return make_unique<CaesarCipher>(shift);
     }
     case 2:
@@ -483,6 +582,7 @@ unique_ptr<Cipher> selectCipher()
             cout << "Invalid key. Please enter letters only.\n";
         }
         ConfigManager::setEncryptionType("Vigenere");
+        ConfigManager::setEncryptionParam(key);
         return make_unique<VigenereCipher>(key);
     }
     case 3:
@@ -498,6 +598,7 @@ unique_ptr<Cipher> selectCipher()
             cout << "Key cannot be empty.\n";
         }
         ConfigManager::setEncryptionType("XOR");
+        ConfigManager::setEncryptionParam(key);
         return make_unique<XORCipher>(key);
     }
     case 4:
@@ -535,11 +636,12 @@ unique_ptr<Cipher> selectCipher()
                 cout << "Key must contain only unique alphabetic characters.\n";
                 continue;
             }
-            try
-            {
-                ConfigManager::setEncryptionType("Substitution");
-                return make_unique<SubstitutionCipher>(key);
-            }
+                try
+                {
+                    ConfigManager::setEncryptionType("Substitution");
+                    ConfigManager::setEncryptionParam(key);
+                    return make_unique<SubstitutionCipher>(key);
+                }
             catch (const invalid_argument &e)
             {
                 cout << "Error: " << e.what() << endl;
@@ -680,15 +782,18 @@ void encryptionSystem()
             continue;
         }
 
-        auto cipher = selectCipher();
-        if (!cipher)
-        {
-            cout << "Cipher initialization failed. Please try again.\n";
-            continue;
-        }
-
         if (choice == 1)
         {
+            auto cipher = selectCipher();
+            if (!cipher)
+            {
+                cout << "Cipher initialization failed. Please try again.\n";
+                continue;
+            }
+
+            // Save chosen cipher to config
+            ConfigManager::saveToFile();
+
             string msg = FileHandler::readFromFile(inputFile);
             if (msg.empty())
             {
@@ -742,6 +847,50 @@ void encryptionSystem()
             {
                 ciphertext = encData;
                 secret = "";
+            }
+
+            // Try to load saved config and construct cipher automatically
+            unique_ptr<Cipher> cipher;
+            bool loaded = ConfigManager::loadFromFile();
+            if (loaded)
+            {
+                string type = ConfigManager::getEncryptionType();
+                string param = ConfigManager::getEncryptionParam();
+                try
+                {
+                    if (iequals(type, "Caesar"))
+                    {
+                        int s = stoi(param);
+                        cipher = make_unique<CaesarCipher>(s);
+                    }
+                    else if (iequals(type, "Vigenere"))
+                    {
+                        cipher = make_unique<VigenereCipher>(param);
+                    }
+                    else if (iequals(type, "XOR"))
+                    {
+                        cipher = make_unique<XORCipher>(param);
+                    }
+                    else if (iequals(type, "Substitution"))
+                    {
+                        cipher = make_unique<SubstitutionCipher>(param);
+                    }
+                }
+                catch (const exception &)
+                {
+                    cipher.reset();
+                }
+            }
+
+            if (!cipher)
+            {
+                cout << "No saved config found, please select cipher manually.\n";
+                cipher = selectCipher();
+                if (!cipher)
+                {
+                    cout << "Cipher initialization failed. Please try again.\n";
+                    continue;
+                }
             }
 
             cout << "Decrypting...\n";

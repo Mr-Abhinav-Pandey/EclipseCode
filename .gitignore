@@ -10,6 +10,9 @@ test_enc.txt
 test_dec.txt
 logs.txt
 
+# Config file for cipher persistence
+eclipse.cfg
+
 # Keep test.txt if you want, but ignore if it has sensitive content
 # test.txt
 
