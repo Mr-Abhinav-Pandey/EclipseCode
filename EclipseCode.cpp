@@ -9,6 +9,7 @@
 #include <chrono>
 #include <iomanip>
 #include <unordered_map>
+#include <openssl/sha.h>
 
 using namespace std;
 
@@ -308,10 +309,23 @@ public:
     }
 };
 
+// REPLACE WITH:
 class Logger
 {
     static const char *logFile;
-    static const char *adminPassword;
+    // SHA-256 hash of "admin123" — never store plaintext passwords
+    static const char *adminPasswordHash;
+
+    static string hashPassword(const string &input)
+    {
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256(reinterpret_cast<const unsigned char *>(input.c_str()), input.size(), hash);
+
+        stringstream ss;
+        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+            ss << hex << setw(2) << setfill('0') << static_cast<int>(hash[i]);
+        return ss.str();
+    }
 
 public:
     static void logAction(const string &action, const string &status, const string &cipherType = "N/A")
@@ -343,7 +357,7 @@ public:
         string input;
         getline(cin, input);
 
-        if (input == adminPassword)
+        if (hashPassword(input) == adminPasswordHash)
         {
             cout << "Access granted.\n";
             return true;
@@ -377,7 +391,7 @@ public:
 };
 
 const char *Logger::logFile = "logs.txt";
-const char *Logger::adminPassword = "admin123";
+const char *Logger::adminPasswordHash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
 
 class ConfigManager
 {
