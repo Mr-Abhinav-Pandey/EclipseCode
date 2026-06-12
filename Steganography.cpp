@@ -154,20 +154,20 @@ bool hideFileInBmp(const string &secretFilename, const string &carrierFilename, 
 
     if (carrierData.size() < 54)
     {
-        cout << "Invalid BMP file.\n";
+        cout << "File too small to be a BMP.\n";
         return false;
     }
 
     if (carrierData[0] != 'B' || carrierData[1] != 'M')
     {
-        cout << "Invalid BMP file.\n";
+        cout << "Not a BMP file.\n";
         return false;
     }
 
     int pixelDataOffset = static_cast<int>(readLittleEndian32(carrierData, 10));
     if (pixelDataOffset < 0 || pixelDataOffset >= static_cast<int>(carrierData.size()))
     {
-        cout << "Invalid BMP file.\n";
+        cout << "Unsupported BMP format.\n";
         return false;
     }
 
