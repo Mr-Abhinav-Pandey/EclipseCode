@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <functional>
 #include "ConfigStore.h"
+#include "Steganography.h"
 
 using namespace std;
 
@@ -290,23 +291,6 @@ public:
         }
         out << content;
         return true;
-    }
-};
-
-class Steganography
-{
-public:
-    static string hideMessage(const string &text, const string &secret)
-    {
-        return text + "<hidden>" + secret;
-    }
-
-    static string extractMessage(const string &text)
-    {
-        size_t pos = text.find("<hidden>");
-        if (pos == string::npos)
-            return "";
-        return text.substr(pos + 8);
     }
 };
 
@@ -675,6 +659,28 @@ bool simulatePayment()
     return true;
 }
 
+void hideFileInBmpFlow()
+{
+    string secretFilename;
+    string carrierFilename;
+
+    cout << "Enter secret filename: ";
+    getline(cin, secretFilename);
+    secretFilename = trim(secretFilename);
+
+    cout << "Enter carrier BMP filename: ";
+    getline(cin, carrierFilename);
+    carrierFilename = trim(carrierFilename);
+
+    if (secretFilename.empty() || carrierFilename.empty())
+    {
+        cout << "Filename cannot be empty.\n";
+        return;
+    }
+
+    Steganography::hideFileInBmp(secretFilename, carrierFilename, "output.bmp");
+}
+
 void encryptionSystem()
 {
     bool exitFlag = false;
@@ -684,16 +690,17 @@ void encryptionSystem()
         cout << "1) Encrypt File (test.txt)\n";
         cout << "2) Decrypt File (test_enc.txt)\n";
         cout << "3) View Logs (Admin Only)\n";
-        cout << "4) Exit\n";
-        cout << "Select an option (1-4): ";
+        cout << "4) Hide File Inside BMP Image\n";
+        cout << "5) Exit\n";
+        cout << "Select an option (1-5): ";
 
-        int choice = getIntInput("", 1, 4);
+        int choice = getIntInput("", 1, 5);
 
         const string inputFile = "test.txt";
         const string encryptedFile = "test_enc.txt";
         const string decryptedFile = "test_dec.txt";
 
-        if (choice == 4)
+        if (choice == 5)
         {
             cout << "Exiting Encryption System. Goodbye.\n";
             exitFlag = true;
@@ -702,6 +709,11 @@ void encryptionSystem()
         else if (choice == 3)
         {
             Logger::viewLogs();
+            continue;
+        }
+        else if (choice == 4)
+        {
+            hideFileInBmpFlow();
             continue;
         }
 
