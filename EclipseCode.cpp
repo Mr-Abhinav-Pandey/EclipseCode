@@ -389,6 +389,7 @@ const char *Logger::logFile = "logs.txt";
 
 inline string trim(const string &s);
 inline bool iequals(const string &a, const string &b);
+unique_ptr<Cipher> createCipher(const string &type, const string &param);
 
 class ConfigManager
 {
@@ -476,7 +477,7 @@ unique_ptr<Cipher> selectCipher()
         int shift = getIntInput("Enter shift amount (integer between 1 and 25): ", 1, 25);
         ConfigManager::setEncryptionType("Caesar");
         ConfigManager::setEncryptionParam(to_string(shift));
-        return make_unique<CaesarCipher>(shift);
+        return createCipher("Caesar", to_string(shift));
     }
     case 2:
     {
@@ -492,7 +493,7 @@ unique_ptr<Cipher> selectCipher()
         }
         ConfigManager::setEncryptionType("Vigenere");
         ConfigManager::setEncryptionParam(key);
-        return make_unique<VigenereCipher>(key);
+        return createCipher("Vigenere", key);
     }
     case 3:
     {
@@ -508,7 +509,7 @@ unique_ptr<Cipher> selectCipher()
         }
         ConfigManager::setEncryptionType("XOR");
         ConfigManager::setEncryptionParam(key);
-        return make_unique<XORCipher>(key);
+        return createCipher("XOR", key);
     }
     case 4:
     {
@@ -549,7 +550,7 @@ unique_ptr<Cipher> selectCipher()
                 {
                     ConfigManager::setEncryptionType("Substitution");
                     ConfigManager::setEncryptionParam(key);
-                    return make_unique<SubstitutionCipher>(key);
+                    return createCipher("Substitution", key);
                 }
             catch (const invalid_argument &e)
             {
@@ -560,6 +561,19 @@ unique_ptr<Cipher> selectCipher()
     default:
         return nullptr;
     }
+}
+
+unique_ptr<Cipher> createCipher(const string &type, const string &param)
+{
+    if (iequals(type, "Caesar"))
+        return make_unique<CaesarCipher>(stoi(param));
+    if (iequals(type, "Vigenere"))
+        return make_unique<VigenereCipher>(param);
+    if (iequals(type, "XOR"))
+        return make_unique<XORCipher>(param);
+    if (iequals(type, "Substitution"))
+        return make_unique<SubstitutionCipher>(param);
+    return nullptr;
 }
 
 void showTrialMode()
@@ -774,25 +788,25 @@ void encryptionSystem()
                     {
                         auto it = cfg.params.find("shift");
                         if (it != cfg.params.end())
-                            cipher = make_unique<CaesarCipher>(stoi(it->second));
+                            cipher = createCipher(cfg.type, it->second);
                     }
                     else if (iequals(cfg.type, "Vigenere"))
                     {
                         auto it = cfg.params.find("key");
                         if (it != cfg.params.end())
-                            cipher = make_unique<VigenereCipher>(it->second);
+                            cipher = createCipher(cfg.type, it->second);
                     }
                     else if (iequals(cfg.type, "XOR"))
                     {
                         auto it = cfg.params.find("key");
                         if (it != cfg.params.end())
-                            cipher = make_unique<XORCipher>(it->second);
+                            cipher = createCipher(cfg.type, it->second);
                     }
                     else if (iequals(cfg.type, "Substitution"))
                     {
                         auto it = cfg.params.find("key");
                         if (it != cfg.params.end())
-                            cipher = make_unique<SubstitutionCipher>(it->second);
+                            cipher = createCipher(cfg.type, it->second);
                     }
 
                     if (cipher)
