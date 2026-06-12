@@ -12,6 +12,9 @@ test_dec.txt
 logs.txt
 eclipse.cfg
 
+# Steganography testing
+test-assets/
+
 # Temporary test files
 input.txt
 tempCodeRunnerFile.cpp
