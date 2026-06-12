@@ -681,6 +681,23 @@ void hideFileInBmpFlow()
     Steganography::hideFileInBmp(secretFilename, carrierFilename, "output.bmp");
 }
 
+void extractFileFromBmpFlow()
+{
+    string bmpFilename;
+
+    cout << "Enter BMP filename: ";
+    getline(cin, bmpFilename);
+    bmpFilename = trim(bmpFilename);
+
+    if (bmpFilename.empty())
+    {
+        cout << "Filename cannot be empty.\n";
+        return;
+    }
+
+    Steganography::extractFileFromBmp(bmpFilename);
+}
+
 void encryptionSystem()
 {
     bool exitFlag = false;
@@ -691,16 +708,17 @@ void encryptionSystem()
         cout << "2) Decrypt File (test_enc.txt)\n";
         cout << "3) View Logs (Admin Only)\n";
         cout << "4) Hide File Inside BMP Image\n";
-        cout << "5) Exit\n";
-        cout << "Select an option (1-5): ";
+        cout << "5) Extract Hidden File From BMP\n";
+        cout << "6) Exit\n";
+        cout << "Select an option (1-6): ";
 
-        int choice = getIntInput("", 1, 5);
+        int choice = getIntInput("", 1, 6);
 
         const string inputFile = "test.txt";
         const string encryptedFile = "test_enc.txt";
         const string decryptedFile = "test_dec.txt";
 
-        if (choice == 5)
+        if (choice == 6)
         {
             cout << "Exiting Encryption System. Goodbye.\n";
             exitFlag = true;
@@ -714,6 +732,11 @@ void encryptionSystem()
         else if (choice == 4)
         {
             hideFileInBmpFlow();
+            continue;
+        }
+        else if (choice == 5)
+        {
+            extractFileFromBmpFlow();
             continue;
         }
 

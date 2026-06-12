@@ -86,6 +86,44 @@ string getBaseName(const string &path)
         return path;
     return path.substr(slashPos + 1);
 }
+
+bool readEmbeddedByte(const vector<char> &carrierData, int startIndex, char &value)
+{
+    if (startIndex < 0 || startIndex + 7 >= static_cast<int>(carrierData.size()))
+        return false;
+
+    unsigned char result = 0;
+    for (int bit = 0; bit < 8; ++bit)
+    {
+        unsigned char carrierByte = static_cast<unsigned char>(carrierData[startIndex + bit]);
+        result = static_cast<unsigned char>((result << 1) | (carrierByte & 1));
+    }
+
+    value = static_cast<char>(result);
+    return true;
+}
+
+bool readEmbeddedBytes(const vector<char> &carrierData, int startIndex, int byteCount, vector<char> &output)
+{
+    output.clear();
+    if (byteCount < 0)
+        return false;
+
+    int requiredBits = byteCount * 8;
+    if (startIndex < 0 || startIndex + requiredBits > static_cast<int>(carrierData.size()))
+        return false;
+
+    output.reserve(byteCount);
+    for (int i = 0; i < byteCount; ++i)
+    {
+        char value = 0;
+        if (!readEmbeddedByte(carrierData, startIndex + (i * 8), value))
+            return false;
+        output.push_back(value);
+    }
+
+    return true;
+}
 } // namespace
 
 namespace Steganography
@@ -169,6 +207,89 @@ bool hideFileInBmp(const string &secretFilename, const string &carrierFilename, 
         return false;
 
     cout << "Embedded file saved as '" << outputFilename << "'.\n";
+    return true;
+}
+
+bool extractFileFromBmp(const string &bmpFilename)
+{
+    vector<char> carrierData;
+    vector<char> headerData;
+    vector<char> filenameData;
+    vector<char> payloadData;
+
+    if (!readBinaryFile(bmpFilename, carrierData))
+        return false;
+
+    if (carrierData.size() < 54)
+    {
+        cout << "Invalid BMP file.\n";
+        return false;
+    }
+
+    if (carrierData[0] != 'B' || carrierData[1] != 'M')
+    {
+        cout << "Invalid BMP file.\n";
+        return false;
+    }
+
+    int pixelDataOffset = static_cast<int>(readLittleEndian32(carrierData, 10));
+    if (pixelDataOffset < 0 || pixelDataOffset >= static_cast<int>(carrierData.size()))
+    {
+        cout << "Invalid BMP file.\n";
+        return false;
+    }
+
+    if (!readEmbeddedBytes(carrierData, pixelDataOffset, 12, headerData))
+    {
+        cout << "No embedded file found.\n";
+        return false;
+    }
+
+    if (headerData[0] != 'E' || headerData[1] != 'C' || headerData[2] != 'S' || headerData[3] != '1')
+    {
+        cout << "No embedded file found.\n";
+        return false;
+    }
+
+    int filenameLength = static_cast<int>(readLittleEndian32(headerData, 4));
+    int payloadLength = static_cast<int>(readLittleEndian32(headerData, 8));
+    if (filenameLength <= 0 || payloadLength < 0)
+    {
+        cout << "Embedded file is corrupted.\n";
+        return false;
+    }
+
+    int totalBytes = 12 + filenameLength + payloadLength;
+    int pixelBytes = static_cast<int>(carrierData.size()) - pixelDataOffset;
+    if (pixelBytes < totalBytes * 8)
+    {
+        cout << "Embedded file is corrupted.\n";
+        return false;
+    }
+
+    if (!readEmbeddedBytes(carrierData, pixelDataOffset + (12 * 8), filenameLength, filenameData))
+    {
+        cout << "Embedded file is corrupted.\n";
+        return false;
+    }
+
+    string outputFilename(filenameData.begin(), filenameData.end());
+    if (outputFilename.empty())
+    {
+        cout << "Embedded file is corrupted.\n";
+        return false;
+    }
+
+    if (!readEmbeddedBytes(carrierData, pixelDataOffset + ((12 + filenameLength) * 8), payloadLength, payloadData))
+    {
+        cout << "Embedded file is corrupted.\n";
+        return false;
+    }
+
+    if (!writeBinaryFile(outputFilename, payloadData))
+        return false;
+
+    cout << "Extracted file saved as '" << outputFilename << "'.\n";
     return true;
 }
 } // namespace Steganography
