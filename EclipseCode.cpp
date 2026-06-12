@@ -310,7 +310,6 @@ public:
     }
 };
 
-// REPLACE WITH:
 class Logger
 {
     static const char *logFile;
@@ -388,7 +387,6 @@ public:
 
 const char *Logger::logFile = "logs.txt";
 
-// forward declarations used by ConfigManager
 inline string trim(const string &s);
 inline bool iequals(const string &a, const string &b);
 
@@ -414,8 +412,6 @@ public:
     {
         return encryptionParam;
     }
-
-    // Persistence methods have been migrated to ConfigStore.
 };
 
 string ConfigManager::encryptionType = "Caesar";
@@ -767,7 +763,6 @@ void encryptionSystem()
                 secret = "";
             }
 
-            // Try to load saved config and construct cipher automatically
             unique_ptr<Cipher> cipher;
             auto loadedConfig = ConfigStore::load();
             if (loadedConfig)

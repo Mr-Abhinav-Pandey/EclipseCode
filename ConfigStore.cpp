@@ -1,7 +1,6 @@
 #include "ConfigStore.h"
 
 #include <fstream>
-#include <sstream>
 
 namespace
 {
