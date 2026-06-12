@@ -1,37 +1,30 @@
 # Compiled binaries
 eclipse
 eclipse.exe
+*.exe
 *.out
 *.o
 *.obj
 
-# Generated data files (created at runtime)
+# Generated data files
 test_enc.txt
 test_dec.txt
 logs.txt
-
-# Config file for cipher persistence
 eclipse.cfg
 
-# Keep test.txt if you want, but ignore if it has sensitive content
-# test.txt
+# Temporary test files
+input.txt
+tempCodeRunnerFile.cpp
 
 # Build directories
 build/
 bin/
 out/
 
-# Eclipse IDE files (since the project is called EclipseCode, just in case)
-.metadata/
-.project
-.classpath
-.settings/
-*.launch
-
 # VS Code
 .vscode/
 
-# CLion / JetBrains
+# JetBrains
 .idea/
 cmake-build-*/
 CMakeCache.txt
@@ -40,9 +33,7 @@ CMakeFiles/
 # Makefile artifacts
 *.d
 
-# macOS stuff
+# OS files
 .DS_Store
-
-# Windows stuff
 Thumbs.db
 desktop.ini
